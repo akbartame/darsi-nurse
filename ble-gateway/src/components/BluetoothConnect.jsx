@@ -1,35 +1,184 @@
-import { useState } from "react";
-import { requestBluetoothDevice } from "../utils/ble";
+import React from "react";
+import BLEManager from "../utils/ble"; // your BLE class
 
-export default function BluetoothConnect() {
-  const [deviceInfo, setDeviceInfo] = useState(null);
+const BluetoothConnect = ({ onConnectionChange, onLog, onDataReceived }) => {
+  const [isConnected, setIsConnected] = React.useState(false);
+  const [deviceName, setDeviceName] = React.useState('');
+  const [services, setServices] = React.useState([]);
+  const [selectedChar, setSelectedChar] = React.useState(null);
 
-  async function handleConnect() {
-    console.log("🔌 handleConnect called");
-
-    const device = await requestBluetoothDevice();
-
-    if (device) {
-        console.log("✅ Device connected:", device.name);
-        setDeviceInfo(device.name || "Unknown Device");
+  const handleConnect = async () => {
+    onLog('Requesting Bluetooth device...', 'info');
+    
+    const result = await BLEManager.connect();
+    
+    if (result.success) {
+      onLog(`Connected to: ${result.name}`, 'success');
+      setIsConnected(true);
+      setDeviceName(result.name);
+      onConnectionChange(true, result.name);
+      
+      // Discover services
+      discoverServices();
     } else {
-        console.log("⚠ No device selected");
+      onLog(`Connection failed: ${result.error}`, 'error');
     }
+  };
+
+  const discoverServices = async () => {
+    onLog('Discovering services...', 'info');
+    
+    try {
+      const servicesInfo = await BLEManager.discoverServices();
+      setServices(servicesInfo);
+      
+      onLog(`Found ${servicesInfo.length} services`, 'success');
+      
+      servicesInfo.forEach(service => {
+        onLog(`Service: ${service.uuid}`, 'info');
+        service.characteristics.forEach(char => {
+          const props = Object.keys(char.properties)
+            .filter(key => char.properties[key])
+            .join(', ');
+          onLog(`  Characteristic: ${char.uuid} [${props}]`, 'info');
+          
+          // Enable notifications on first notify-capable characteristic
+          if (char.properties.notify && !selectedChar) {
+            enableNotifications(char);
+          }
+        });
+      });
+    } catch (error) {
+      onLog(`Service discovery failed: ${error.message}`, 'error');
     }
+  };
+
+  const enableNotifications = async (char) => {
+    const result = await BLEManager.startNotifications(
+      char.instance,
+      handleNotification
+    );
+    
+    if (result.success) {
+      setSelectedChar(char);
+      onLog(`Notifications enabled on ${char.uuid}`, 'success');
+    }
+  };
+
+  const handleNotification = (event) => {
+    const value = event.target.value;
+    const decoder = new TextDecoder('utf-8');
+    const text = decoder.decode(value);
+    
+    onLog(`Received: ${text}`, 'success');
+    onDataReceived(text);
+  };
+
+  const handleDisconnect = () => {
+    BLEManager.disconnect();
+    setIsConnected(false);
+    setDeviceName('');
+    setServices([]);
+    setSelectedChar(null);
+    onConnectionChange(false, '');
+    onLog('Disconnected', 'warning');
+  };
 
   return (
-    <div style={{ padding: 20, border: "1px solid #444", borderRadius: 8 }}>
-      <h2>Bluetooth Connection</h2>
+    <div style={{
+      padding: '1.5rem',
+      background: '#f8f9fa',
+      borderRadius: '8px',
+      border: '1px solid #ddd'
+    }}>
+      <h3 style={{ marginTop: 0, marginBottom: '1rem', color: '#333' }}>
+        📡 Bluetooth Connection
+      </h3>
+      
+      <div style={{
+        padding: '1rem',
+        background: isConnected ? '#d4edda' : '#fff',
+        border: `2px solid ${isConnected ? '#28a745' : '#ddd'}`,
+        borderRadius: '8px',
+        marginBottom: '1rem'
+      }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+          Status: {isConnected ? '✅ Connected' : '⭕ Disconnected'}
+        </div>
+        {deviceName && (
+          <div style={{ fontSize: '0.875rem', color: '#666' }}>
+            Device: {deviceName}
+          </div>
+        )}
+      </div>
 
-      <button onClick={handleConnect}
-      className="bg-blue-600 text-white px-4 py-3 rounded-xl w-full"
-      >
-        Enable Bluetooth & Connect
-      </button>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button
+          onClick={handleConnect}
+          disabled={isConnected}
+          style={{
+            flex: 1,
+            padding: '0.75rem',
+            background: isConnected ? '#ccc' : '#667eea',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: isConnected ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          Connect
+        </button>
+        
+        <button
+          onClick={handleDisconnect}
+          disabled={!isConnected}
+          style={{
+            flex: 1,
+            padding: '0.75rem',
+            background: !isConnected ? '#ccc' : '#dc3545',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: !isConnected ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          Disconnect
+        </button>
+      </div>
 
-      {deviceInfo && (
-        <p>Connected to: <strong>{deviceInfo}</strong></p>
+      {services.length > 0 && (
+        <div style={{ marginTop: '1rem' }}>
+          <details>
+            <summary style={{ cursor: 'pointer', fontWeight: 'bold', color: '#667eea' }}>
+              Services ({services.length})
+            </summary>
+            <div style={{ 
+              marginTop: '0.5rem',
+              fontSize: '0.75rem',
+              fontFamily: 'monospace',
+              maxHeight: '200px',
+              overflowY: 'auto',
+              padding: '0.5rem',
+              background: '#fff',
+              borderRadius: '4px'
+            }}>
+              {services.map((service, idx) => (
+                <div key={idx} style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ color: '#667eea' }}>📦 {service.uuid}</div>
+                  {service.characteristics.map((char, cidx) => (
+                    <div key={cidx} style={{ marginLeft: '1rem', color: '#666' }}>
+                      └─ {char.uuid}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </details>
+        </div>
       )}
     </div>
   );
-}
+};
+export default BluetoothConnect;
