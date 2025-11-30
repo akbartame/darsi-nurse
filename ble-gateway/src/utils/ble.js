@@ -1,3 +1,13 @@
+const WANTED_SERVICES = [
+  'battery_service',         // 0x180F
+  'device_information',      // 0x180A
+  'heart_rate',              // 0x180D
+  'health_thermometer',      // 0x1809
+  'generic_access',          // 0x1800
+  'generic_attribute'        // 0x1801
+];
+
+
 export const BLEManager = {
   device: null,
   server: null,
@@ -79,7 +89,7 @@ export const BLEManager = {
       // This will show the device picker dialog which requests permissions
       await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: ['battery_service', 'generic_access', 'device_information']
+        optionalServices: WANTED_SERVICES
       });
       
       return { success: true, message: 'Permissions granted' };
@@ -104,12 +114,7 @@ export const BLEManager = {
           { namePrefix: 'Arduino' },
           { namePrefix: 'Nordic' }
         ],
-        optionalServices = [
-          'battery_service',
-          'generic_access', 
-          'device_information',
-          'generic_attribute'
-        ],
+        optionalServices = WANTED_SERVICES,
         acceptAllDevices = false
       } = options;
 
@@ -117,10 +122,13 @@ export const BLEManager = {
       console.log('Filters:', filters);
 
       // Request device with proper configuration
-      const requestOptions = acceptAllDevices 
-        ? { acceptAllDevices: true, optionalServices }
-        : { filters, optionalServices };
-
+      // const requestOptions = acceptAllDevices 
+      //   ? { acceptAllDevices: true, optionalServices }
+      //   : { filters, optionalServices };
+      const requestOptions = {
+        acceptAllDevices: true,
+        optionalServices: WANTED_SERVICES
+      };
       this.device = await navigator.bluetooth.requestDevice(requestOptions);
 
       console.log('Device selected:', this.device.name || 'Unnamed');

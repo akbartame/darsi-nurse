@@ -53,6 +53,49 @@ const BluetoothConnect = ({ onConnectionChange, onLog, onDataReceived }) => {
     }
   };
 
+  function decodeBleData(uuid, value) {
+    const data = new Uint8Array(value.buffer);
+
+    // HEART RATE (0x2A37)
+    if (uuid.startsWith("00002a37")) {
+      const flags = data[0];
+      const hr16 = flags & 0x01;
+
+      let heartRate;
+      if (hr16) {
+        heartRate = data[1] | (data[2] << 8);
+      } else {
+        heartRate = data[1];
+      }
+
+      return { type: "heartRate", heartRate };
+    }
+
+    // TEMPERATURE (0x2A1C)
+    if (uuid.startsWith("00002a1c")) {
+      // data[0] = flags
+      const rawMantissa = (data[1] | (data[2] << 8) | (data[3] << 16));
+
+      // Sign-extend 24-bit to 32-bit
+      const mantissa = (rawMantissa & 0x800000) ? (rawMantissa | 0xFF000000) : rawMantissa;
+
+      // exponent is signed 8-bit
+      const exponent = (data[4] << 24) >> 24;
+
+      const temperature = mantissa * Math.pow(10, exponent);
+
+      return { type: "temperature", temperature };
+    }
+
+
+    // BATTERY (0x2A19)
+    if (uuid.startsWith("00002a19")) {
+      return { type: "battery", battery: data[0] };
+    }
+
+    return { type: "unknown", raw: data };
+  }
+
   const enableNotifications = async (char) => {
     const result = await BLEManager.startNotifications(
       char.instance,
@@ -65,14 +108,30 @@ const BluetoothConnect = ({ onConnectionChange, onLog, onDataReceived }) => {
     }
   };
 
-  const handleNotification = (event) => {
+  function handleNotification(event) {
     const value = event.target.value;
-    const decoder = new TextDecoder('utf-8');
-    const text = decoder.decode(value);
+    const uuid = event.target.uuid;
+    const decoded = decodeBleData(uuid, value);
+
+    console.log("Decoded Data:", decoded);
     
-    onLog(`Received: ${text}`, 'success');
-    onDataReceived(text);
-  };
+
+    // Kirim ke UI React (jika kamu pakai state)
+    if (decoded.type === "heartRate") 
+      onDataReceived({
+        type: "heartRate",
+        value: decoded.heartRate
+      });
+    if (decoded.type === "temperature") onDataReceived({
+        type: "temperature",
+        value: decoded.temperature
+      });
+    if (decoded.type === "battery") onDataReceived({
+        type: "battery",
+        value: decoded.battery
+      });
+  }
+
 
   const handleDisconnect = () => {
     BLEManager.disconnect();

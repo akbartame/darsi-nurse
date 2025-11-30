@@ -120,7 +120,9 @@ const Dashboard = () => {
               receivedData.map((item, idx) => (
                 <div key={idx} style={{ marginBottom: '0.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
                   <span style={{ color: '#999' }}>[{item.timestamp}]</span>{' '}
-                  <span style={{ color: '#28a745' }}>{item.data}</span>
+                  <span style={{ color: '#28a745' }}>
+                    {item.data.type}: {item.data.value}
+                  </span>
                 </div>
               ))
             )}
