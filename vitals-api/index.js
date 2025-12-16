@@ -3,6 +3,8 @@ const aggregator = require('./aggregator');
 const cleanup = require('./cleanup');
 const config = require('./config');
 const fs = require('fs');
+const minuteBuffer = require('./minuteBuffer');
+const { writeMinuteSummary } = require('./minuteSummary');
 
 mqtt.start();
 
@@ -12,10 +14,15 @@ setInterval(() => {
   );
 }, config.aggregationIntervalMs);
 
-// run cleanup once per hour (cheap + safe)
+setInterval(() => {
+  const snapshot = minuteBuffer.consumeAndReset();
+  writeMinuteSummary(snapshot);
+}, 60 * 1000);
+
+// run cleanup once per day
 setInterval(() => {
   cleanup.cleanupTempFiles();
-}, 60 * 60 * 1000);
+}, 24 * 60 * 60 * 1000);
 
 setInterval(() => {
   fs.writeFileSync(

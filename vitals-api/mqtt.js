@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const config = require('./config');
 const buffer = require('./buffer');
+const minuteBuffer = require('./minuteBuffer');
+
 
 const TMP_DIR = path.join(__dirname, 'tmp');
 
@@ -40,6 +42,13 @@ function start() {
       const data = JSON.parse(message.toString());
 
       buffer.add(
+        data.room_id,
+        data.heart_rate,
+        data.breath_rate,
+        data.distance
+      );
+
+      minuteBuffer.add(
         data.room_id,
         data.heart_rate,
         data.breath_rate,
