@@ -42,7 +42,8 @@ function start() {
       buffer.add(
         data.room_id,
         data.heart_rate,
-        data.breath_rate
+        data.breath_rate,
+        data.distance
       );
 
       fs.appendFileSync(

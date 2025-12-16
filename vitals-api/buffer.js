@@ -1,12 +1,19 @@
 const buffer = {};
 
-function add(roomId, hr, rr) {
+function add(roomId, hr, rr, distance) {
   if (!buffer[roomId]) {
-    buffer[roomId] = { hr: [], rr: [] };
+    buffer[roomId] = {
+      hr: [],
+      rr: [],
+      lastDistance: null
+    };
   }
 
   if (hr > 0) buffer[roomId].hr.push(hr);
   if (rr > 0) buffer[roomId].rr.push(rr);
+  if (typeof distance === 'number') {
+    buffer[roomId].lastDistance = Math.round(distance);
+  }
 }
 
 function consumeAndReset() {

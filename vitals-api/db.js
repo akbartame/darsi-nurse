@@ -15,12 +15,14 @@ async function getEmrByRoom(roomId) {
   return rows.length ? rows[0].emr_no : null;
 }
 
-async function insertVitals(emrNo, hr, rr) {
+async function insertVitals(emrNo, hr, rr, distance) {
   await pool.execute(
-    `INSERT INTO vitals (emr_no, waktu, heart_rate, respirasi)
-     VALUES (?, NOW(), ?, ?)`,
-    [emrNo, hr, rr]
+    `INSERT INTO vitals
+     (emr_no, waktu, heart_rate, respirasi, jarak_kasur_cm)
+     VALUES (?, NOW(), ?, ?, ?)`,
+    [emrNo, hr, rr, distance]
   );
 }
+
 
 module.exports = { getEmrByRoom, insertVitals };

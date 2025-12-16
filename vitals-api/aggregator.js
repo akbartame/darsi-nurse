@@ -19,7 +19,13 @@ async function flush() {
     let emrNo = await db.getEmrByRoom(roomId);
     if (!emrNo) emrNo = config.fallbackEmr;
 
-    await db.insertVitals(emrNo, avgHr, avgRr);
+    await db.insertVitals(
+      emrNo,
+      avgHr,
+      avgRr,
+      data[roomId].lastDistance
+    );
+    
     console.log(
       `[FLUSH] ${new Date().toISOString()} rooms=${Object.keys(data).length}`
     );
