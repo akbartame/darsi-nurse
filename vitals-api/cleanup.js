@@ -1,24 +1,38 @@
 const fs = require('fs');
 const path = require('path');
 
-const TMP_DIR = path.join(__dirname, 'tmp');
+const BASE_DIR = path.join(__dirname, 'tmp', 'summary');
 const RETENTION_DAYS = 3;
 
 function cleanupTempFiles() {
-  if (!fs.existsSync(TMP_DIR)) return;
+  if (!fs.existsSync(BASE_DIR)) return;
 
-  const now = Date.now();
-  const maxAgeMs = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
 
-  fs.readdirSync(TMP_DIR).forEach(file => {
-    const filePath = path.join(TMP_DIR, file);
-    const stat = fs.statSync(filePath);
+  for (const roomId of fs.readdirSync(BASE_DIR)) {
+    const roomDir = path.join(BASE_DIR, roomId);
+    if (!fs.statSync(roomDir).isDirectory()) continue;
 
-    if (now - stat.mtimeMs > maxAgeMs) {
-      fs.unlinkSync(filePath);
-      console.log(`Deleted temp file: ${file}`);
+    for (const file of fs.readdirSync(roomDir)) {
+      if (!file.endsWith('.log')) continue;
+
+      const dateStr = file.replace('.log', '');
+      const fileDate = new Date(dateStr);
+
+      if (isNaN(fileDate)) continue;
+
+      if (fileDate < cutoff) {
+        fs.unlinkSync(path.join(roomDir, file));
+        console.log(`[CLEANUP] deleted ${roomId}/${file}`);
+      }
     }
-  });
+
+    // remove empty room directory
+    if (fs.readdirSync(roomDir).length === 0) {
+      fs.rmdirSync(roomDir);
+    }
+  }
 }
 
 module.exports = { cleanupTempFiles };
