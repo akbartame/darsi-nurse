@@ -26,6 +26,15 @@ function start() {
     console.log('MQTT connected');
   });
 
+  client.on('offline', () => {
+    console.error('MQTT offline');
+  });
+
+  client.on('error', err => {
+    console.error('MQTT error', err);
+  });
+
+
   client.on('message', (_, message) => {
     try {
       const data = JSON.parse(message.toString());

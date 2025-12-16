@@ -2,6 +2,7 @@ const mqtt = require('./mqtt');
 const aggregator = require('./aggregator');
 const cleanup = require('./cleanup');
 const config = require('./config');
+const fs = require('fs');
 
 mqtt.start();
 
@@ -15,5 +16,12 @@ setInterval(() => {
 setInterval(() => {
   cleanup.cleanupTempFiles();
 }, 60 * 60 * 1000);
+
+setInterval(() => {
+  fs.writeFileSync(
+    'health.txt',
+    new Date().toISOString()
+  );
+}, 60 * 1000);
 
 console.log('Vitals ingestor running');

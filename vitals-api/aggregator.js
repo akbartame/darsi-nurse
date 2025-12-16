@@ -20,6 +20,9 @@ async function flush() {
     if (!emrNo) emrNo = config.fallbackEmr;
 
     await db.insertVitals(emrNo, avgHr, avgRr);
+    console.log(
+      `[FLUSH] ${new Date().toISOString()} rooms=${Object.keys(data).length}`
+    );
   }
 }
 

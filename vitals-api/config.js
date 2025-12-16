@@ -7,9 +7,9 @@ module.exports = {
   },
   db: {
     host: 'localhost',
-    user: 'root',
-    password: 'YOUR_PASSWORD',
-    database: 'YOUR_DATABASE'
+    user: 'darsinurse',
+    password: 'darsinurse123',
+    database: 'darsinurse'
   },
   aggregationIntervalMs: 15 * 60 * 1000,
   fallbackEmr: 'UNASSIGNED'
