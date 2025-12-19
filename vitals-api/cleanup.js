@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const BASE_DIR = path.join(__dirname, 'tmp', 'summary');
-const RETENTION_DAYS = 3;
+const RETENTION_DAYS = 14;
 
 function cleanupTempFiles() {
   if (!fs.existsSync(BASE_DIR)) return;
