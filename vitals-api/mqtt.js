@@ -4,13 +4,18 @@ const path = require('path');
 const config = require('./config');
 const buffer = require('./buffer');
 const minuteBuffer = require('./minuteBuffer');
-
+const fallDetection = require('./fallDetection');
 
 const TMP_DIR = path.join(__dirname, 'tmp');
 
 function getTodayFile() {
   const date = new Date().toISOString().slice(0, 10);
   return path.join(TMP_DIR, `vitals-${date}.log`);
+}
+
+function getFallLogFile() {
+  const date = new Date().toISOString().slice(0, 10);
+  return path.join(TMP_DIR, `fall-${date}.log`);
 }
 
 function start() {
@@ -24,7 +29,11 @@ function start() {
   });
 
   client.on('connect', () => {
-    client.subscribe(config.mqtt.topic);
+    // Subscribe to both topics
+    config.mqtt.topics.forEach(topic => {
+      client.subscribe(topic);
+      console.log(`MQTT subscribed to: ${topic}`);
+    });
     console.log('MQTT connected');
   });
 
@@ -36,29 +45,40 @@ function start() {
     console.error('MQTT error', err);
   });
 
-
-  client.on('message', (_, message) => {
+  client.on('message', (topic, message) => {
     try {
       const data = JSON.parse(message.toString());
 
-      buffer.add(
-        data.room_id,
-        data.heart_rate,
-        data.breath_rate,
-        data.distance
-      );
+      if (topic === 'rsi/data') {
+        // Existing vitals data
+        buffer.add(
+          data.room_id,
+          data.heart_rate,
+          data.breath_rate,
+          data.distance
+        );
 
-      minuteBuffer.add(
-        data.room_id,
-        data.heart_rate,
-        data.breath_rate,
-        data.distance
-      );
+        minuteBuffer.add(
+          data.room_id,
+          data.heart_rate,
+          data.breath_rate,
+          data.distance
+        );
 
-      fs.appendFileSync(
-        getTodayFile(),
-        JSON.stringify(data) + '\n'
-      );
+        fs.appendFileSync(
+          getTodayFile(),
+          JSON.stringify(data) + '\n'
+        );
+      } 
+      else if (topic === 'hitam') {
+        // Fall detection data
+        fallDetection.updateFallStatus(data.room_id, data.status);
+        
+        fs.appendFileSync(
+          getFallLogFile(),
+          JSON.stringify(data) + '\n'
+        );
+      }
 
     } catch (err) {
       console.error('Invalid MQTT payload', err);

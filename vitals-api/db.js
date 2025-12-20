@@ -24,5 +24,13 @@ async function insertVitals(emrNo, hr, rr, distance) {
   );
 }
 
+async function insertFallVitals(emrNo, hr, rr, distance) {
+  await pool.execute(
+    `INSERT INTO vitals
+     (emr_no, waktu, heart_rate, respirasi, jarak_kasur_cm, fall_detected)
+     VALUES (?, NOW(), ?, ?, ?, 1)`,
+    [emrNo, hr, rr, distance]
+  );
+}
 
-module.exports = { getEmrByRoom, insertVitals };
+module.exports = { getEmrByRoom, insertVitals, insertFallVitals };

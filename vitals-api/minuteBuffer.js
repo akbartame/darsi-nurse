@@ -22,4 +22,9 @@ function consumeAndReset() {
   return snapshot;
 }
 
-module.exports = { add, consumeAndReset };
+function getCurrentSnapshot() {
+  // Return copy without resetting
+  return { ...buffer };
+}
+
+module.exports = { add, consumeAndReset, getCurrentSnapshot };

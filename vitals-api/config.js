@@ -1,7 +1,7 @@
 module.exports = {
   mqtt: {
     url: 'mqtt://103.106.72.181:1883',
-    topic: 'rsi/data',
+    topics: ['rsi/data', 'hitam'], // Add new topic
     username: 'MEDLOC',
     password: 'MEDLOC'
   },
