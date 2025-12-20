@@ -20,6 +20,7 @@ setInterval(() => {
 setInterval(() => {
   const snapshot = minuteBuffer.consumeAndReset();
   writeMinuteSummary(snapshot);
+  mqtt.publishMinuteSummaryToHA(snapshot);
 }, 60 * 1000);
 
 // Fall detection check every minute

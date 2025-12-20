@@ -10,10 +10,13 @@ const TMP_DIR = path.join(__dirname, 'tmp');
 
 // ---- HA publish control ----
 const discoveredDevices = new Set();
-const HA_TOPIC_VERSION = 'v1';
-const HA_PUBLISH_INTERVAL_MS = 60 * 1000; // 1 minute (change later)
-const haLastPublish = {}; // device_id -> timestamp
+let mqttClient = null;
+// NOTE:
+// roomToDevice is in-memory only.
+// After restart, up to 1 minute of HA state may be skipped.
+// This is acceptable by design.
 
+const roomToDevice = new Map();
 
 function getTodayFile() {
   const date = new Date().toISOString().slice(0, 10);
@@ -45,7 +48,7 @@ function publishHADiscovery(client, deviceId) {
       payload: {
         name: 'Breath Rate',
         unit_of_measurement: 'bpm',
-        value_template: '{{ value_json.breath_rate }}'
+        value_template: '{{ value_json.avg_breath_rate }}'
       }
     },
     {
@@ -54,7 +57,7 @@ function publishHADiscovery(client, deviceId) {
       payload: {
         name: 'Heart Rate',
         unit_of_measurement: 'bpm',
-        value_template: '{{ value_json.heart_rate }}'
+        value_template: '{{ value_json.avg_heart_rate }}'
       }
     },
     {
@@ -64,17 +67,6 @@ function publishHADiscovery(client, deviceId) {
         name: 'Distance',
         unit_of_measurement: 'cm',
         value_template: '{{ value_json.distance }}'
-      }
-    },
-    {
-      component: 'binary_sensor',
-      objectId: 'presence',
-      payload: {
-        name: 'Presence',
-        device_class: 'occupancy',
-        payload_on: '1',
-        payload_off: '0',
-        value_template: '{{ value_json.presence }}'
       }
     }
   ];
@@ -95,36 +87,10 @@ function publishHADiscovery(client, deviceId) {
   });
 }
 
-function republishForHomeAssistant(client, data) {
-  if (!data || !data.device_id) return;
-
-  const now = Date.now();
-  const last = haLastPublish[data.device_id] || 0;
-
-  // Rate limiting (per device)
-  if (now - last < HA_PUBLISH_INTERVAL_MS) {
-    return;
-  }
-
-  haLastPublish[data.device_id] = now;
-
-  const topic = `rsi/${HA_TOPIC_VERSION}/device/${data.device_id}/state`;
-
-  client.publish(
-    topic,
-    JSON.stringify({
-      device_id: data.device_id,
-      room_id: data.room_id,
-      breath_rate: data.breath_rate,
-      heart_rate: data.heart_rate,
-      distance: data.distance,
-      presence: data.presence,
-      timestamp: data.timestamp
-    }),
-    { retain: true }
-  );
+function avg(arr) {
+  if (!arr || !arr.length) return null;
+  return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
 }
-
 
 function start() {
   if (!fs.existsSync(TMP_DIR)) {
@@ -135,6 +101,7 @@ function start() {
     username: config.mqtt.username,
     password: config.mqtt.password
   });
+  mqttClient = client;
 
   client.on('connect', () => {
     // Subscribe to both topics
@@ -159,12 +126,6 @@ function start() {
 
       if (topic === 'rsi/data') {
 
-        // auto-discover for Home Assistant
-        publishHADiscovery(client, data.device_id);
-        
-        // republish to Home Assistant
-        republishForHomeAssistant(client, data);
-
         // Vital signs data
         buffer.add(
           data.room_id,
@@ -184,6 +145,10 @@ function start() {
           getTodayFile(),
           JSON.stringify(data) + '\n'
         );
+
+        roomToDevice.set(data.room_id, data.device_id);
+        publishHADiscovery(client, data.device_id);
+        
       } 
       else if (topic === 'hitam') {
         // Fall detection data
@@ -201,4 +166,38 @@ function start() {
   });
 }
 
-module.exports = { start };
+function publishMinuteSummaryToHA(snapshot) {
+  if (!mqttClient) return;
+  const minute = new Date().toISOString().slice(0, 16);
+
+  for (const roomId in snapshot) {
+    const data = snapshot[roomId];
+
+    const deviceId = roomToDevice.get(roomId);
+    if (!deviceId) {
+      console.warn(`[HA] No device mapping for room ${roomId}, skipping publish`);
+      continue;
+    }
+
+    const avgHr = avg(data.hr);
+    const avgRr = avg(data.rr);
+
+    if (avgHr === null && avgRr === null) continue;
+
+    const topic = `rsi/v1/device/${deviceId}/state`;
+
+    mqttClient.publish(
+      topic,
+      JSON.stringify({
+        device_id: deviceId,
+        room_id: roomId,
+        avg_heart_rate: avgHr,
+        avg_breath_rate: avgRr,
+        distance: data.lastDistance,
+        timestamp: minute
+      }),
+      { retain: true }
+    );
+  }
+}
+module.exports = { start, publishMinuteSummaryToHA };
