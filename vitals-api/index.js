@@ -3,25 +3,26 @@ const aggregator = require('./aggregator');
 const cleanup = require('./cleanup');
 const config = require('./config');
 const fs = require('fs');
-const minuteBuffer = require('./minuteBuffer');
+const buffer = require('./buffer');
 const { writeMinuteSummary } = require('./minuteSummary');
 const fallAggregator = require('./fallAggregator');
 
 mqtt.start();
 
-// Regular 15-minute aggregation
-setInterval(() => {
-  aggregator.flush().catch(err =>
-    console.error('Aggregation error:', err)
-  );
-}, config.aggregationIntervalMs);
-
 // Minute summary
 setInterval(() => {
-  const snapshot = minuteBuffer.consumeAndReset();
+  const snapshot = buffer.snapshot();
+  aggregator.absorbMinute(snapshot);
   writeMinuteSummary(snapshot);
   mqtt.publishMinuteSummaryToHA(snapshot);
+
+  buffer.reset();
 }, 60 * 1000);
+
+// Regular 15-minute aggregation
+setInterval(() => {
+  aggregator.flush15m().catch(console.error);
+}, 15 * 60 * 1000);
 
 // Fall detection check every minute
 setInterval(() => {

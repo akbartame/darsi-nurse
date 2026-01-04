@@ -1,18 +1,46 @@
-const buffer = require('./buffer');
 const db = require('./db');
 const config = require('./config');
+
+let acc = {}; // 15-minute accumulator
 
 function average(arr) {
   if (!arr.length) return null;
   return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
 }
 
-async function flush() {
-  const data = buffer.consumeAndReset();
+/**
+ * Absorb ONE minute snapshot
+ * Called every minute
+ */
+function absorbMinute(minuteSnapshot) {
+  for (const roomId in minuteSnapshot) {
+    const data = minuteSnapshot[roomId];
 
-  for (const roomId of Object.keys(data)) {
-    const avgHr = average(data[roomId].hr);
-    const avgRr = average(data[roomId].rr);
+    if (!acc[roomId]) {
+      acc[roomId] = {
+        hr: [],
+        rr: [],
+        lastDistance: null
+      };
+    }
+
+    acc[roomId].hr.push(...data.hr);
+    acc[roomId].rr.push(...data.rr);
+    acc[roomId].lastDistance = data.lastDistance;
+  }
+}
+
+/**
+ * Flush 15-minute aggregate to DB
+ * Called every 15 minutes
+ */
+async function flush15m() {
+  const rooms = Object.keys(acc);
+  if (!rooms.length) return;
+
+  for (const roomId of rooms) {
+    const avgHr = average(acc[roomId].hr);
+    const avgRr = average(acc[roomId].rr);
 
     if (avgHr === null && avgRr === null) continue;
 
@@ -23,13 +51,15 @@ async function flush() {
       emrNo,
       avgHr,
       avgRr,
-      data[roomId].lastDistance
-    );
-    
-    console.log(
-      `[FLUSH] ${new Date().toISOString()} rooms=${Object.keys(data).length}`
+      acc[roomId].lastDistance
     );
   }
+
+  console.log(
+    `[15M FLUSH] ${new Date().toISOString()} rooms=${rooms.length}`
+  );
+
+  acc = {}; // reset ONLY here
 }
 
-module.exports = { flush };
+module.exports = { absorbMinute, flush15m };

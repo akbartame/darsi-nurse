@@ -1,4 +1,4 @@
-const minuteBuffer = require('./minuteBuffer');
+const buffer = require('./buffer');
 const fallDetection = require('./fallDetection');
 const db = require('./db');
 const config = require('./config');
@@ -10,27 +10,37 @@ function average(arr) {
 
 async function checkAndInsertFalls() {
   const fallingRooms = fallDetection.getAllFallingRooms();
-  
-  if (fallingRooms.length === 0) return;
+  if (!fallingRooms.length) return;
 
-  // Get current minute buffer snapshot without resetting
-  const currentData = { ...minuteBuffer.getCurrentSnapshot() };
+  const currentData = buffer.snapshot();
 
   for (const roomId of fallingRooms) {
     const data = currentData[roomId];
-    
-    // Get averages (can be null if no data this minute)
-    const avgHr = data ? average(data.hr) : null;
-    const avgRr = data ? average(data.rr) : null;
-    const lastDistance = data ? data.lastDistance : null;
 
-    // Get patient EMR
+    const last = buffer.getLastKnown(roomId);
+
+    const avgHr = data?.hr?.length
+      ? average(data.hr)
+      : last.hr ?? null;
+
+    const avgRr = data?.rr?.length
+      ? average(data.rr)
+      : last.rr ?? null;
+
+    const lastDistance =
+      data?.lastDistance ?? last.lastDistance ?? null;
+
+
     let emrNo = await db.getEmrByRoom(roomId);
     if (!emrNo) emrNo = config.fallbackEmr;
 
-    // Insert fall event with current vitals
-    await db.insertFallVitals(emrNo, avgHr, avgRr, lastDistance);
-    
+    await db.insertFallVitals(
+      emrNo,
+      avgHr,
+      avgRr,
+      lastDistance
+    );
+
     console.log(
       `[FALL ALERT] ${new Date().toISOString()} room=${roomId} emr=${emrNo} hr=${avgHr} rr=${avgRr}`
     );

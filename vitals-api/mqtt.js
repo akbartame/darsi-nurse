@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const config = require('./config');
 const buffer = require('./buffer');
-const minuteBuffer = require('./minuteBuffer');
 const fallDetection = require('./fallDetection');
 
 const TMP_DIR = path.join(__dirname, 'tmp');
@@ -134,7 +133,7 @@ function start() {
           data.distance
         );
 
-        minuteBuffer.add(
+        buffer.add(
           data.room_id,
           data.heart_rate,
           data.breath_rate,

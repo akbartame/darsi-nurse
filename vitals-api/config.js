@@ -11,6 +11,5 @@ module.exports = {
     password: 'darsinurse123',
     database: 'darsinurse'
   },
-  aggregationIntervalMs: 15 * 60 * 1000,
   fallbackEmr: 'UNASSIGNED'
 };
