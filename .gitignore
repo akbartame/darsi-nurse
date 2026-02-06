@@ -2,3 +2,5 @@
 vitals-api/package-lock.json
 /vitals-api/tmp
 vitals-api/health.txt
+/vitals-simulator/node_modules
+vitals-simulator/package-lock.json
