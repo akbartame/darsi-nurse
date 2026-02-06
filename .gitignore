@@ -4,3 +4,6 @@ vitals-api/package-lock.json
 vitals-api/health.txt
 /vitals-simulator/node_modules
 vitals-simulator/package-lock.json
+vitals-api/get_log.php
+vitals-api/deploy.sh
+vitals-api/get_fall.php
